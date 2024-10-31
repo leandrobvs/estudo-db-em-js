@@ -1,18 +1,31 @@
-const statement =
-  'create table author (id number, name string, age number, city string, state string, country string)';
-
-let regexp = /\w+ \w+ (\w+) \((.+)\)/;
-
-let parsedStatement = regexp.exec(statement);
-
-let tableName = parsedStatement[1];
-let columns = parsedStatement[2].split(', ');
-
 const database = {
-  tables: {
-    [tableName]: {
+  tables: {},
+
+  createTable(statement) {
+    let regexp = /\w+ \w+ (\w+) \((.+)\)/;
+    let parsedStatement = regexp.exec(statement);
+
+    let tableName = parsedStatement[1];
+    let columns = parsedStatement[2].split(', ');
+
+    this.tables[tableName] = {
       columns: {},
       data: []
+    };
+
+    for (let column of columns) {
+      let key = column.split(' ')[0];
+      let value = column.split(' ')[1];
+      this.tables[tableName].columns[key] = value;
+    }
+  },
+
+  execute(statement) {
+    if (statement.startsWith('create')) {
+      return this.createTable(statement);
+    }
+    if (statement.startsWith('delete')) {
+      console.log('command not implemented yet');
     }
   }
 };
@@ -25,11 +38,8 @@ const database = {
 
 /* Variação usando for of */
 
-for (let column of columns) {
-  let key = column.split(' ')[0];
-  let value = column.split(' ')[1];
-
-  database.tables[tableName].columns[key] = value;
-}
-
+database.execute(
+  'create table author (id number, name string, age number, city string, state string, country string)'
+);
+database.execute('delete table author');
 console.log(JSON.stringify(database, null, ' '));
