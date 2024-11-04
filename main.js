@@ -10,8 +10,8 @@ const database = {
     let regexp = /\w+ \w+ (\w+) \((.+)\)/;
     let parsedStatement = regexp.exec(statement);
 
-    let tableName = parsedStatement[1];
-    let columns = parsedStatement[2].split(', ');
+    let [, tableName, columns] = parsedStatement;
+    columns = columns.split(', ');
 
     this.tables[tableName] = {
       columns: {},
@@ -27,8 +27,8 @@ const database = {
     /* Variação usando for of */
 
     for (let column of columns) {
-      let key = column.split(' ')[0];
-      let value = column.split(' ')[1];
+      column = column.split(' ');
+      let [key, value] = column;
       this.tables[tableName].columns[key] = value;
     }
   },
@@ -36,17 +36,48 @@ const database = {
     let regexp = /\w+ \w+ (\w+) \((.+)\) \w+ \((.+)\)/;
     let parsedStatement = regexp.exec(statement);
 
-    let tableName = parsedStatement[1];
-    let columns = parsedStatement[2].split(', ');
-    let values = parsedStatement[3].split(', ');
+    let [, tableName, columns, values] = parsedStatement;
+    columns = columns.split(', ');
+    values = values.split(', ');
 
     let row = {};
-
     for (let i = 0; i < columns.length; i++) {
       row[columns[i]] = values[i];
     }
-
     this.tables[tableName].data.push(row);
+  },
+
+  select(statement) {
+    let regexp = /select (.+) from (\w+)(?: where (.+))?/;
+    let parsedStatement = regexp.exec(statement);
+    let [, columns, tableName, where] = parsedStatement;
+    columns = columns.split(', ');
+
+    let filterRow = this.tables[tableName].data;
+    let finalResult = [];
+
+    if (where) {
+      let rowResult = {};
+      [columnWhere, valueWhere] = where.split(' = ');
+      const row = filterRow.filter(function (row) {
+        return row[columnWhere] === valueWhere;
+      });
+
+      for (let i = 0; i < columns.length; i++) {
+        rowResult[columns[i]] = row[0][columns[i]];
+      }
+      finalResult.push(rowResult);
+    } else {
+      filterRow.forEach(function (row) {
+        let rowResult = {};
+        for (let i = 0; i < columns.length; i++) {
+          rowResult[columns[i]] = row[columns[i]];
+        }
+        finalResult.push(rowResult);
+      });
+    }
+
+    return finalResult;
   },
 
   execute(statement) {
@@ -55,6 +86,9 @@ const database = {
     }
     if (statement.startsWith('insert')) {
       return this.insert(statement);
+    }
+    if (statement.startsWith('select')) {
+      return this.select(statement);
     } else {
       throw new DatabaseError(statement, 'Unknown Command');
     }
@@ -68,7 +102,10 @@ try {
   database.execute('insert into author (id, name, age) values (1, Douglas Crockford, 62)');
   database.execute('insert into author (id, name, age) values (2, Linus Torvalds, 47)');
   database.execute('insert into author (id, name, age) values (3, Martin Fowler, 54)');
-  console.log(JSON.stringify(database, null, ' '));
+  console.log(database.execute('select name from author'));
+  console.log(database.execute('select name, age from author where id = 2'));
+
+  // console.log(JSON.stringify(database, null, ' '));
 } catch (error) {
   console.log(error);
 }
