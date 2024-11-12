@@ -15,7 +15,7 @@ const database = {
 
     this.tables[tableName] = {
       columns: {},
-      data: []
+      data: [],
     };
 
     /* Variação usando for loop normal */
@@ -79,6 +79,24 @@ const database = {
 
     return finalResult;
   },
+  delete(statement) {
+    let regexp = /delete from (\w+)(?: where (.+))?/;
+    let parsedStatement = regexp.exec(statement);
+    let [, tableName, whereClause] = parsedStatement;
+
+    let filterRow = this.tables[tableName].data;
+    let finalResult = [];
+
+    if (whereClause) {
+      let [where, value] = whereClause.split(' = ');
+      finalResult = filterRow.filter(function (rows) {
+        return rows[where] !== value;
+      });
+      this.tables[tableName].data = finalResult;
+    } else {
+      this.tables[tableName].data = [];
+    }
+  },
 
   execute(statement) {
     if (statement.startsWith('create')) {
@@ -89,10 +107,13 @@ const database = {
     }
     if (statement.startsWith('select')) {
       return this.select(statement);
+    }
+    if (statement.startsWith('delete')) {
+      return this.delete(statement);
     } else {
       throw new DatabaseError(statement, 'Unknown Command');
     }
-  }
+  },
 };
 
 try {
@@ -102,10 +123,10 @@ try {
   database.execute('insert into author (id, name, age) values (1, Douglas Crockford, 62)');
   database.execute('insert into author (id, name, age) values (2, Linus Torvalds, 47)');
   database.execute('insert into author (id, name, age) values (3, Martin Fowler, 54)');
-  console.log(database.execute('select name from author'));
-  console.log(database.execute('select name, age from author where id = 2'));
-
-  // console.log(JSON.stringify(database, null, ' '));
+  // console.log(database.execute('select name from author'));
+  // console.log(database.execute('select name, age from author where id = 2'));
+  database.execute('delete from author where id = 1');
+  console.log(JSON.stringify(database, null, ' '));
 } catch (error) {
   console.log(error);
 }
