@@ -3,14 +3,35 @@ const DatabaseError = function (statement, message) {
   this.error = message;
 };
 
+const Parser = function () {
+  let commands = new Map();
+  commands.set('createTable', /create \w+ (\w+) \((.+)\)/);
+  commands.set('insert', /insert \w+ (\w+) \((.+)\) \w+ \((.+)\)/);
+  commands.set('select', /select (.+) from (\w+)(?: where (.+))?/);
+  commands.set('delete', /delete from (\w+)(?: where (.+))?/);
+
+  this.parse = function (statement) {
+    for (let command of commands) {
+      let parsedStatement = command[1].exec(statement);
+      if (parsedStatement) {
+        let endCommand = command[0];
+        return {
+          endCommand,
+          parsedStatement,
+        };
+      }
+    }
+  };
+};
+
 const database = {
   tables: {},
 
-  createTable(statement) {
-    let regexp = /\w+ \w+ (\w+) \((.+)\)/;
-    let parsedStatement = regexp.exec(statement);
+  parser: new Parser(),
 
+  createTable(parsedStatement) {
     let [, tableName, columns] = parsedStatement;
+
     columns = columns.split(', ');
 
     this.tables[tableName] = {
@@ -32,10 +53,7 @@ const database = {
       this.tables[tableName].columns[key] = value;
     }
   },
-  insert(statement) {
-    let regexp = /\w+ \w+ (\w+) \((.+)\) \w+ \((.+)\)/;
-    let parsedStatement = regexp.exec(statement);
-
+  insert(parsedStatement) {
     let [, tableName, columns, values] = parsedStatement;
     columns = columns.split(', ');
     values = values.split(', ');
@@ -47,9 +65,7 @@ const database = {
     this.tables[tableName].data.push(row);
   },
 
-  select(statement) {
-    let regexp = /select (.+) from (\w+)(?: where (.+))?/;
-    let parsedStatement = regexp.exec(statement);
+  select(parsedStatement) {
     let [, columns, tableName, where] = parsedStatement;
     columns = columns.split(', ');
 
@@ -79,9 +95,7 @@ const database = {
 
     return finalResult;
   },
-  delete(statement) {
-    let regexp = /delete from (\w+)(?: where (.+))?/;
-    let parsedStatement = regexp.exec(statement);
+  delete(parsedStatement) {
     let [, tableName, whereClause] = parsedStatement;
 
     let filterRow = this.tables[tableName].data;
@@ -99,17 +113,9 @@ const database = {
   },
 
   execute(statement) {
-    if (statement.startsWith('create')) {
-      return this.createTable(statement);
-    }
-    if (statement.startsWith('insert')) {
-      return this.insert(statement);
-    }
-    if (statement.startsWith('select')) {
-      return this.select(statement);
-    }
-    if (statement.startsWith('delete')) {
-      return this.delete(statement);
+    const result = this.parser.parse(statement);
+    if (result) {
+      return this[result.endCommand](result.parsedStatement);
     } else {
       throw new DatabaseError(statement, 'Unknown Command');
     }
@@ -123,10 +129,11 @@ try {
   database.execute('insert into author (id, name, age) values (1, Douglas Crockford, 62)');
   database.execute('insert into author (id, name, age) values (2, Linus Torvalds, 47)');
   database.execute('insert into author (id, name, age) values (3, Martin Fowler, 54)');
-  // console.log(database.execute('select name from author'));
+  // database.execute('delete from author where id = 1');
+  console.log(database.execute('select name, age from author'));
   // console.log(database.execute('select name, age from author where id = 2'));
-  database.execute('delete from author where id = 1');
-  console.log(JSON.stringify(database, null, ' '));
+
+  // console.log(JSON.stringify(database, null, ' '));
 } catch (error) {
   console.log(error);
 }
