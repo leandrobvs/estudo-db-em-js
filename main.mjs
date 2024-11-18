@@ -17,5 +17,3 @@ try {
 } catch (error) {
   console.log(error);
 }
-
-// 6. Insira o objeto em "data".
